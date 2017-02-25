@@ -2,10 +2,11 @@
   "name": "gsmap",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "dist/gsmap.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "watch": ""
+    "watch": "webpack --progress --colors --watch",
+    "start": "http-server"
   },
   "repository": {
     "type": "git",
@@ -29,6 +30,7 @@
     "eslint-plugin-import": "^2.2.0",
     "eslint-plugin-jsx-a11y": "^4.0.0",
     "eslint-plugin-react": "^6.1.2",
+    "http-server": "^0.9.0",
     "webpack": "^2.2.1"
   }
 }
