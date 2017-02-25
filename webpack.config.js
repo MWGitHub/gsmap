@@ -1,5 +1,5 @@
 module.exports = {
-  entry: './lib/index.js',
+  entry: './src/index.js',
   output: {
     path: './dist',
     filename: 'gsmap.bundle.js'
