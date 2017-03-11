@@ -26,4 +26,6 @@ function start() {
   render();
 }
 
-export { start };
+module.exports = {
+  start
+};
