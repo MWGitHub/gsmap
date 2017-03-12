@@ -2,6 +2,8 @@
  * Checks for valid PNGs and loads them.
  */
 
+import pako from 'pako';
+
 const CHUNK_SIZE = 8;
 const PNG_SIGNATURE = [137, 80, 78, 71, 13, 10, 26, 10];
 const IHDR_SIGNATURE = [0, 0, 0, 13, 73, 72, 68, 82];
@@ -50,7 +52,7 @@ function bytesToUint32(byteArray, start, length) {
  * @return {Boolean} true if valid, false otherwise.
  */
 function isPNG(byteArray) {
-  if (byteArray.byteLength < CHUNK_SIZE) {
+  if (byteArray.byteLength < CHUNK_SIZE * 2) {
     return false;
   }
 
@@ -64,13 +66,13 @@ function isPNG(byteArray) {
 }
 
 /**
- * Process the header.
+ * Parse the header.
  *
  * @param  {Uint8Array} byteArray - byte array to read from.
  * @param  {Number} start - location to begin.
- * @return {Object} the processed header.
+ * @return {Object} the parsed header.
  */
-function processHeader(byteArray, start) {
+function parseHeader(byteArray, start) {
   const colorBitCombinations = {
     0: [1, 2, 4, 8, 16],
     2: [8, 16],
@@ -111,11 +113,55 @@ function processHeader(byteArray, start) {
   };
 }
 
+/**
+ * Parse the data.
+ *
+ * @param  {Uint8Array} byteArray - byte array to read from.
+ * @param  {Number} start - location to begin.
+ * @return {Object} the parsed data.
+ */
+function parseData(byteArray, start, length) {
+  const compressed = byteArray.slice(start, start + length);
+  const decompressed = pako.inflate(compressed);
+
+  return decompressed;
+}
+
+/**
+ * Parse the palette.
+ *
+ * @param  {Uint8Array} byteArray - byte array to read from.
+ * @param  {Number} start - location to start reading from.
+ * @return {Object} the parsed palette.
+ */
+function parsePalette(byteArray, start, length) {
+  return null;
+}
+
+/**
+ * Processes a chunk.
+ *
+ * @param  {Uint8Array} byteArray - byte array to read from.
+ * @param  {Number} start - location to start reading from.
+ * @return {Object} length if unmatched chunk, else the result with the key, value, and length.
+ */
 function processChunk(byteArray, start) {
   const processors = {
     73726882: {
       key: 'header',
-      process: processHeader
+      parse: parseHeader
+    },
+    73686584: {
+      key: 'data',
+      parse: parseData
+    },
+    80768469: {
+      key: 'palette',
+      parse: parsePalette
+    },
+    73697868: {
+      key: 'end',
+      parse: () => {}
     }
   };
 
@@ -139,9 +185,6 @@ function processChunk(byteArray, start) {
   }
   position += META_SIZE;
 
-  console.log('data length', dataLength);
-  console.log('type', type);
-
   const totalLength = META_SIZE * 3 + dataLength;
   const processor = processors[type];
 
@@ -151,7 +194,7 @@ function processChunk(byteArray, start) {
     };
   }
 
-  const result = processor.process(byteArray, start + CHUNK_SIZE, dataLength);
+  const result = processor.parse(byteArray, start + CHUNK_SIZE, dataLength);
   console.log(result);
 
   return {
@@ -168,27 +211,50 @@ function processChunk(byteArray, start) {
  * @return {undefined} nothing
  */
 function processPNG(byteArray) {
-  if (!isPNG(byteArray)) {
-    throw new Error('Invalid file format');
-  }
-
-  const result = {};
-
   for (let i = 0; i < byteArray.byteLength; i++) {
     console.log(byteArray[i], String.fromCharCode(byteArray[i]));
   }
 
+  if (!isPNG(byteArray)) {
+    throw new Error('Invalid file format');
+  }
+
+  let data = new Uint8Array(0);
+  const result = {};
+
   let i = CHUNK_SIZE;
+  let lastChunkKey = null;
   while (i < byteArray.byteLength) {
     const chunkResult = processChunk(byteArray, i);
+    const key = chunkResult.key;
+    const value = chunkResult.value;
 
-    if (chunkResult.value) {
-      result[chunkResult.key] = chunkResult.value;
+    if (key) {
+      lastChunkKey = key;
     }
 
-    // i += chunkResult.length;
-    i += 1000000000;
+    if (value) {
+      if (key !== 'data') {
+        result[key] = value;
+      } else {
+        const concatArray = new Uint8Array(data.byteLength + chunkResult.value.byteLength);
+
+        concatArray.set(data);
+        concatArray.set(value, data.byteLength);
+        data = concatArray;
+      }
+    }
+
+    i += chunkResult.length;
   }
+
+  if (lastChunkKey !== 'end') {
+    throw new Error('End is not last');
+  }
+
+  result.data = data;
+
+  return result;
 }
 
 function load(path) {
