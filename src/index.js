@@ -1,3 +1,5 @@
+import pngLoader from './util/png-loader';
+
 function start() {
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
@@ -22,6 +24,8 @@ function start() {
     cube.rotation.x += 0.1;
     cube.rotation.y += 0.1;
   }
+
+  pngLoader.load('./bw-filled.png');
 
   render();
 }

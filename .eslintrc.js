@@ -1,17 +1,18 @@
 module.exports = {
-    "extends": "airbnb",
-    "plugins": [
-        "react",
-        "jsx-a11y",
-        "import"
+  'extends': 'airbnb',
+    'plugins': [
+        'react',
+        'jsx-a11y',
+        'import'
     ],
-    "env": {
-      "browser": true
+    'env': {
+      'browser': true
     },
-    "globals": {
-      "THREE": true
+    'globals': {
+      'THREE': true
     },
-    "rules": {
-      "comma-dangle": 0
+    'rules': {
+      'comma-dangle': 0,
+      'no-plusplus': 0
     }
 };
