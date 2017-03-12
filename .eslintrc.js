@@ -13,6 +13,8 @@ module.exports = {
     },
     'rules': {
       'comma-dangle': 0,
-      'no-plusplus': 0
+      'no-plusplus': 0,
+      'no-bitwise': 0,
+      'no-mixed-operators': 0
     }
 };
