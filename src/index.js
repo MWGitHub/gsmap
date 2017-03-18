@@ -1,7 +1,7 @@
-import pngLoader from './util/png-loader';
+import png from './util/png';
 
 function load() {
-  return pngLoader.load('png-test.png');
+  return png.load('png-test.png');
 }
 
 function makeScene(image) {

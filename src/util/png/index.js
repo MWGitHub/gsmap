@@ -1,33 +1,67 @@
-/**
- * Checks for valid PNGs and loads them.
- */
-
 import pako from 'pako';
 
-const CHUNK_SIZE = 8;
 const PNG_SIGNATURE = [137, 80, 78, 71, 13, 10, 26, 10];
 const IHDR_SIGNATURE = [0, 0, 0, 13, 73, 72, 68, 82];
 const SIGNATURE = PNG_SIGNATURE.concat(IHDR_SIGNATURE);
+const CHUNK_SIZE = 8;
 const META_SIZE = 4;
 const MAX_SIGNIFICANT_SIZE = 127;
+
+const chunkDefinitions = {
+  header: {
+    signature: '73726882',
+    parser: parseHeader
+  },
+  data: {
+    signature: '73686584',
+    parser: parseData
+  },
+  palette: {
+    signature: '80768469',
+    parser: parsePalette
+  },
+  end: {
+    signature: '73697868'
+  }
+};
+
+/**
+ * Retrieves the chunk definition from the signature.
+ *
+ * @param  {String} signature - signature of the chunk as a number string.
+ * @return {String} the chunk key or null if none matching.
+ */
+function getChunkKeyFromSignature(signature) {
+  const keys = Object.keys(chunkDefinitions);
+
+  for (let i = 0; i < keys.length; i++) {
+    const definition = chunkDefinitions[keys[i]];
+
+    if (definition.signature === signature) {
+      return keys[i];
+    }
+  }
+
+  return null;
+}
 
 /**
  * Converts a series of bytes to an unsigned 32-bit integer.
  *
- * @param  {Uint8Array} byteArray - array to use.
+ * @param  {Uint8Array} byteArray - array to read from.
  * @param  {Number} start - starting position.
- * @param  {Number} length - number of bytes to use.
+ * @param  {Number} count - number of bytes to read.
  * @return {Number} 32-bit unsigned integer.
  */
-function bytesToUint32(byteArray, start, length) {
-  if (length > 4) {
+function bytesToUint32(byteArray, start, count) {
+  if (count > 4) {
     throw new Error('Length cannot be greater than 4');
   }
 
   let position = start;
   let value = 0;
 
-  if (length === 4) {
+  if (count === 4) {
     let sigValue = byteArray[position];
 
     if (sigValue > MAX_SIGNIFICANT_SIZE) {
@@ -38,11 +72,76 @@ function bytesToUint32(byteArray, start, length) {
     position++;
   }
 
-  for (let i = position; i < start + length; i++) {
-    value += byteArray[i] << (8 * (length - (i - start) - 1));
+  for (let i = position; i < start + count; i++) {
+    value += byteArray[i] << (8 * (count - (i - start) - 1));
   }
 
   return value;
+}
+
+/**
+ * Converts a series of bytes to a string.
+ *
+ * @param  {Uint8Array} byteArray - array to read from.
+ * @param  {Number} start - starting position.
+ * @param  {Number} count - number of bytes to read.
+ * @return {String} the bytes as a string.
+ */
+function bytesToString(byteArray, start, count) {
+  let result = '';
+  for (let i = start; i < start + count; i++) {
+    const byte = byteArray[i];
+
+    if (byte === 0) {
+      result += '00';
+    } else if (byte < 10) {
+      result += `0${byte.toString()}`;
+    } else {
+      result += byte.toString();
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Retrieves all the chunks meta data from the byte array.
+ *
+ * @param  {Uint8Array} byteArray - array to use.
+ * @return {Object} the chunks with the header data and length.
+ */
+function retrieveMetaChunks(byteArray) {
+  const chunks = [];
+
+  let i = PNG_SIGNATURE.length; // skip the PNG signature
+  while (i < byteArray.byteLength) {
+    const dataLength = bytesToUint32(byteArray, i, META_SIZE);
+
+    i += META_SIZE;
+    const signature = bytesToString(byteArray, i, META_SIZE);
+    const key = getChunkKeyFromSignature(signature);
+
+    i += META_SIZE + dataLength;
+    const crc = bytesToUint32(byteArray, i, META_SIZE);
+
+    i += META_SIZE;
+
+    const meta = {
+      key,
+      signature,
+      crc,
+      data: {
+        start: i * META_SIZE * 2,
+        length: dataLength,
+      }
+    };
+
+    if (key) {
+      chunks.push(meta);
+    }
+  }
+
+  return chunks;
 }
 
 /**
@@ -51,7 +150,7 @@ function bytesToUint32(byteArray, start, length) {
  * @param  {Uint8Array}  byteArray - array to check.
  * @return {Boolean} true if valid, false otherwise.
  */
-function isPNG(byteArray) {
+function isSignatureValid(byteArray) {
   if (byteArray.byteLength < CHUNK_SIZE * 2) {
     return false;
   }
@@ -232,7 +331,7 @@ function processPNG(byteArray) {
     console.log(byteArray[i], String.fromCharCode(byteArray[i]));
   }
 
-  if (!isPNG(byteArray)) {
+  if (!isSignatureValid(byteArray)) {
     throw new Error('Invalid file format');
   }
 
@@ -274,6 +373,17 @@ function processPNG(byteArray) {
   return result;
 }
 
+function png(byteArray) {
+  const metaChunks = retrieveMetaChunks(byteArray);
+  const isLastChunkIEND = metaChunks[metaChunks.length - 1].key === 'end';
+
+  if (!isLastChunkIEND) {
+    throw new Error('IEND must be the last chunk.');
+  }
+
+  console.log(metaChunks);
+}
+
 function load(path) {
   return new Promise((resolve, reject) => {
     const req = new XMLHttpRequest();
@@ -291,9 +401,7 @@ function load(path) {
       const byteArray = new Uint8Array(arrayBuffer);
 
       try {
-        const png = processPNG(byteArray);
-
-        resolve(png);
+        resolve(png(byteArray));
       } catch (processError) {
         reject(processError);
       }
@@ -307,5 +415,6 @@ function load(path) {
 }
 
 export default {
+  png,
   load
 };
