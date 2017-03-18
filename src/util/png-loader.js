@@ -124,6 +124,26 @@ function parseData(byteArray, start, length) {
   const compressed = byteArray.slice(start, start + length);
   const decompressed = pako.inflate(compressed);
 
+  const filters = [];
+  const pixels = [];
+  for (let i = 0; i < decompressed.length; i += 4) {
+    const pixel = {};
+    if (i % 13 === 0) {
+      filters.push(decompressed[i]);
+      i += 1;
+    }
+
+    pixel.r = decompressed[i];
+    pixel.g = decompressed[i + 1];
+    pixel.b = decompressed[i + 2];
+    pixel.a = decompressed[i + 3];
+
+    pixels.push(pixel);
+  }
+
+  console.log('filters', filters);
+  console.log(pixels);
+
   return decompressed;
 }
 
