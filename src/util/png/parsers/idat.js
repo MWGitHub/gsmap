@@ -30,12 +30,30 @@ function getBytesPerPixel(bitDepth, colorType) {
   return 4 * bytesPerSample;
 }
 
+/**
+ * Add elements to the filtered bytes array as unfiltered.
+ *
+ * @param {Number[]} filteredBytes - unfiltered bytes array to modify.
+ * @param {Number} byteOffset - offset for filteredBytes.
+ * @param {Uint8Array} byteArray - byte array to read from.
+ * @param {Number} start - offset for the byteArray.
+ * @param {Number} length - bytes to set.
+ */
 function setUnfilteredLine(filteredBytes, byteOffset, byteArray, start, length) {
   for (let i = 0; i < length; i++) {
     filteredBytes.push(byteArray[start + i]);
   }
 }
 
+/**
+ * Add elements to the filtered bytes array as sub.
+ *
+ * @param {Number[]} filteredBytes - unfiltered bytes array to modify.
+ * @param {Number} byteOffset - offset for filteredBytes.
+ * @param {Uint8Array} byteArray - byte array to read from.
+ * @param {Number} start - offset for the byteArray.
+ * @param {Number} length - bytes to set.
+ */
 function setSubLine(filteredBytes, byteOffset, byteArray, start, length, bytesPerPixel) {
   for (let i = 0; i < length; i++) {
     const offset = byteOffset + i - bytesPerPixel;
