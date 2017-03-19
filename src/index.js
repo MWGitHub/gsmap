@@ -1,6 +1,7 @@
 import { load as loadPNG } from './util/png';
 
 function load() {
+  // return loadPNG('png-test.png');
   return loadPNG('bw-filled.png');
 }
 
