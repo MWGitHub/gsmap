@@ -55,6 +55,11 @@ function retrieveMetaChunks(byteArray) {
     if (type) {
       chunks.push(meta);
     }
+
+    // IEND must be the last chunk
+    if (type === 'IEND') {
+      break;
+    }
   }
 
   return chunks;
@@ -80,191 +85,46 @@ function isSignatureValid(byteArray) {
   return true;
 }
 
-/**
- * Parse the data.
- *
- * @param  {Uint8Array} byteArray - byte array to read from.
- * @param  {Number} start - location to begin.
- * @return {Object} the parsed data.
- */
-function parseData(byteArray, start, length) {
-  const compressed = byteArray.slice(start, start + length);
-  const decompressed = pako.inflate(compressed);
-
-  const pixels = [];
-  for (let i = 0; i < decompressed.length; i += 4) {
-    const pixel = {};
-    if (i % 13 === 0) {
-
-    }
-
-    pixel.r = decompressed[i];
-    pixel.g = decompressed[i + 1];
-    pixel.b = decompressed[i + 2];
-    pixel.a = decompressed[i + 3];
-
-    pixels.push(pixel);
-  }
-
-  console.log(pixels);
-
-  return decompressed;
-}
-
-/**
- * Parse the palette.
- *
- * @param  {Uint8Array} byteArray - byte array to read from.
- * @param  {Number} start - location to start reading from.
- * @return {Object} the parsed palette.
- */
-function parsePalette(byteArray, start, length) {
-  return null;
-}
-
-/**
- * Processes a chunk.
- *
- * @param  {Uint8Array} byteArray - byte array to read from.
- * @param  {Number} start - location to start reading from.
- * @return {Object} length if unmatched chunk, else the result with the key, value, and length.
- */
-function processChunk(byteArray, start) {
-  const processors = {
-    73726882: {
-      key: 'header',
-      parse: parseHeader
-    },
-    73686584: {
-      key: 'data',
-      parse: parseData
-    },
-    80768469: {
-      key: 'palette',
-      parse: parsePalette
-    },
-    73697868: {
-      key: 'end',
-      parse: () => {}
-    }
-  };
-
-
-  if (byteArray[start] > MAX_SIGNIFICANT_SIZE) {
-    throw new Error('Invalid chunk length');
-  }
-
-  let position = start;
-
-  // parse the length of the chunk
-  const dataLength = bytesToUint32(byteArray, position, META_SIZE);
-  position += META_SIZE;
-
-  // parse the type of chunk
-  let type = '';
-  for (let i = position; i < position + META_SIZE; i++) {
-    const value = byteArray[i];
-
-    type += value;
-  }
-  position += META_SIZE;
-
-  const totalLength = META_SIZE * 3 + dataLength;
-  const processor = processors[type];
-
-  if (!processor) {
-    return {
-      length: totalLength
-    };
-  }
-
-  const result = processor.parse(byteArray, start + CHUNK_SIZE, dataLength);
-  console.log(result);
-
-  return {
-    key: processor.key,
-    result,
-    length: totalLength
-  };
-}
-
-/**
- * Processes the PNG file, throws on errors.
- *
- * @param  {Uint8Array} byteArray - array to process.
- * @return {undefined} nothing
- */
-function processPNG(byteArray) {
-  for (let i = 0; i < byteArray.byteLength; i++) {
-    console.log(byteArray[i], String.fromCharCode(byteArray[i]));
-  }
-
-  if (!isSignatureValid(byteArray)) {
-    throw new Error('Invalid file format');
-  }
-
-  let data = new Uint8Array(0);
-  const result = {};
-
-  let i = CHUNK_SIZE;
-  let lastChunkKey = null;
-  while (i < byteArray.byteLength) {
-    const chunkResult = processChunk(byteArray, i);
-    const key = chunkResult.key;
-    const value = chunkResult.value;
-
-    if (key) {
-      lastChunkKey = key;
-    }
-
-    if (value) {
-      if (key !== 'data') {
-        result[key] = value;
-      } else {
-        const concatArray = new Uint8Array(data.byteLength + chunkResult.value.byteLength);
-
-        concatArray.set(data);
-        concatArray.set(value, data.byteLength);
-        data = concatArray;
-      }
-    }
-
-    i += chunkResult.length;
-  }
-
-  if (lastChunkKey !== 'end') {
-    throw new Error('End is not last');
-  }
-
-  result.data = data;
-
-  return result;
-}
-
 function png(byteArray) {
+  if (!isSignatureValid(byteArray)) {
+    throw new Error('Invalid PNG signature');
+  }
+
   const metaChunks = retrieveMetaChunks(byteArray);
   const isLastChunkIEND = metaChunks[metaChunks.length - 1].type === 'IEND';
 
   if (!isLastChunkIEND) {
-    throw new Error('IEND must be the last chunk.');
+    throw new Error('IEND must be the last chunk');
   }
 
   const headerMeta = metaChunks.shift();
   const header = parseHeader(byteArray, headerMeta.data.start);
+  let filters = [];
   let pixels = [];
 
   for (let i = 0; i < metaChunks.length; i++) {
     const chunkMeta = metaChunks[i];
+    const start = chunkMeta.data.start;
+    const length = chunkMeta.data.length;
+    let result;
 
     switch (chunkMeta.type) {
       case 'IDAT':
-        pixels = pixels.concat(parseData(byteArray, header));
+        result = parseData(byteArray, start, length, header);
+
+        pixels = pixels.concat(result.pixels);
+        filters = filters.concat(result.filters);
+
         break;
       default:
     }
   }
 
-  console.log(header);
+  return {
+    header,
+    filters,
+    pixels
+  };
 }
 
 function load(path) {
