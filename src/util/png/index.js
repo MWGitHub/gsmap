@@ -1,108 +1,21 @@
-import pako from 'pako';
+import { bytesToUint32, bytesToString } from './byte-converter';
+import parseHeader from './parsers/ihdr';
+import parseData from './parsers/idat';
 
 const PNG_SIGNATURE = [137, 80, 78, 71, 13, 10, 26, 10];
 const IHDR_SIGNATURE = [0, 0, 0, 13, 73, 72, 68, 82];
 const SIGNATURE = PNG_SIGNATURE.concat(IHDR_SIGNATURE);
 const CHUNK_SIZE = 8;
 const META_SIZE = 4;
-const MAX_SIGNIFICANT_SIZE = 127;
 
-const chunkDefinitions = {
-  header: {
-    signature: '73726882',
-    parser: parseHeader
-  },
-  data: {
-    signature: '73686584',
-    parser: parseData
-  },
-  palette: {
-    signature: '80768469',
-    parser: parsePalette
-  },
-  end: {
-    signature: '73697868'
-  }
+/* eslint-disable quote-props */
+const chunkSignatureType = {
+  '73726882': 'IHDR',
+  '73686584': 'IDAT',
+  '80768469': 'PLTE',
+  '73697868': 'IEND'
 };
-
-/**
- * Retrieves the chunk definition from the signature.
- *
- * @param  {String} signature - signature of the chunk as a number string.
- * @return {String} the chunk key or null if none matching.
- */
-function getChunkKeyFromSignature(signature) {
-  const keys = Object.keys(chunkDefinitions);
-
-  for (let i = 0; i < keys.length; i++) {
-    const definition = chunkDefinitions[keys[i]];
-
-    if (definition.signature === signature) {
-      return keys[i];
-    }
-  }
-
-  return null;
-}
-
-/**
- * Converts a series of bytes to an unsigned 32-bit integer.
- *
- * @param  {Uint8Array} byteArray - array to read from.
- * @param  {Number} start - starting position.
- * @param  {Number} count - number of bytes to read.
- * @return {Number} 32-bit unsigned integer.
- */
-function bytesToUint32(byteArray, start, count) {
-  if (count > 4) {
-    throw new Error('Length cannot be greater than 4');
-  }
-
-  let position = start;
-  let value = 0;
-
-  if (count === 4) {
-    let sigValue = byteArray[position];
-
-    if (sigValue > MAX_SIGNIFICANT_SIZE) {
-      value += MAX_SIGNIFICANT_SIZE << 24;
-      sigValue -= MAX_SIGNIFICANT_SIZE;
-    }
-    value += sigValue << 24;
-    position++;
-  }
-
-  for (let i = position; i < start + count; i++) {
-    value += byteArray[i] << (8 * (count - (i - start) - 1));
-  }
-
-  return value;
-}
-
-/**
- * Converts a series of bytes to a string.
- *
- * @param  {Uint8Array} byteArray - array to read from.
- * @param  {Number} start - starting position.
- * @param  {Number} count - number of bytes to read.
- * @return {String} the bytes as a string.
- */
-function bytesToString(byteArray, start, count) {
-  let result = '';
-  for (let i = start; i < start + count; i++) {
-    const byte = byteArray[i];
-
-    if (byte === 0) {
-      result += '00';
-    } else if (byte < 10) {
-      result += `0${byte.toString()}`;
-    } else {
-      result += byte.toString();
-    }
-  }
-
-  return result;
-}
+/* eslint-enable quote-props */
 
 /**
  * Retrieves all the chunks meta data from the byte array.
@@ -119,24 +32,27 @@ function retrieveMetaChunks(byteArray) {
 
     i += META_SIZE;
     const signature = bytesToString(byteArray, i, META_SIZE);
-    const key = getChunkKeyFromSignature(signature);
+    const type = chunkSignatureType[signature];
 
-    i += META_SIZE + dataLength;
+    i += META_SIZE;
+    const dataStart = i;
+
+    i += dataLength;
     const crc = bytesToUint32(byteArray, i, META_SIZE);
 
     i += META_SIZE;
 
     const meta = {
-      key,
+      type,
       signature,
       crc,
       data: {
-        start: i * META_SIZE * 2,
+        start: dataStart,
         length: dataLength,
       }
     };
 
-    if (key) {
+    if (type) {
       chunks.push(meta);
     }
   }
@@ -162,54 +78,6 @@ function isSignatureValid(byteArray) {
   }
 
   return true;
-}
-
-/**
- * Parse the header.
- *
- * @param  {Uint8Array} byteArray - byte array to read from.
- * @param  {Number} start - location to begin.
- * @return {Object} the parsed header.
- */
-function parseHeader(byteArray, start) {
-  const colorBitCombinations = {
-    0: [1, 2, 4, 8, 16],
-    2: [8, 16],
-    3: [1, 2, 4, 8],
-    4: [8, 16],
-    6: [8, 16]
-  };
-
-  const width = bytesToUint32(byteArray, start, 4);
-  const height = bytesToUint32(byteArray, start + 4, 4);
-  const bitDepth = bytesToUint32(byteArray, start + 8, 1);
-  const colorType = bytesToUint32(byteArray, start + 9, 1);
-  const compressionMethod = bytesToUint32(byteArray, start + 10, 1);
-  const filterMethod = bytesToUint32(byteArray, start + 11, 1);
-  const interlaceMethod = bytesToUint32(byteArray, start + 12, 1);
-
-  if (width === 0 || height === 0) {
-    throw new Error('Dimensions can not be 0');
-  }
-
-  const combination = colorBitCombinations[colorType];
-  if (!combination) {
-    throw new Error('Invalid color type');
-  }
-
-  if (!combination.includes(bitDepth)) {
-    throw new Error('Invalid bit depth');
-  }
-
-  return {
-    width,
-    height,
-    bitDepth,
-    colorType,
-    compressionMethod,
-    filterMethod,
-    interlaceMethod
-  };
 }
 
 /**
@@ -375,13 +243,28 @@ function processPNG(byteArray) {
 
 function png(byteArray) {
   const metaChunks = retrieveMetaChunks(byteArray);
-  const isLastChunkIEND = metaChunks[metaChunks.length - 1].key === 'end';
+  const isLastChunkIEND = metaChunks[metaChunks.length - 1].type === 'IEND';
 
   if (!isLastChunkIEND) {
     throw new Error('IEND must be the last chunk.');
   }
 
-  console.log(metaChunks);
+  const headerMeta = metaChunks.shift();
+  const header = parseHeader(byteArray, headerMeta.data.start);
+  let pixels = [];
+
+  for (let i = 0; i < metaChunks.length; i++) {
+    const chunkMeta = metaChunks[i];
+
+    switch (chunkMeta.type) {
+      case 'IDAT':
+        pixels = pixels.concat(parseData(byteArray, header));
+        break;
+      default:
+    }
+  }
+
+  console.log(header);
 }
 
 function load(path) {
@@ -414,7 +297,5 @@ function load(path) {
   });
 }
 
-export default {
-  png,
-  load
-};
+export default png;
+export { load };
