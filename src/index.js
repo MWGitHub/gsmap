@@ -1,6 +1,14 @@
-import pngLoader from './util/png-loader';
+import { load as loadPNG } from './util/png';
 
-function start() {
+function load() {
+  // return loadPNG('png-test.png');
+  return loadPNG('bw-filled.png');
+}
+
+function makeScene(image) {
+  const mapData = image;
+  console.log(mapData);
+
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
   const renderer = new THREE.WebGLRenderer();
@@ -25,9 +33,13 @@ function start() {
     cube.rotation.y += 0.1;
   }
 
-  pngLoader.load('./bw-filled.png');
-
   render();
+}
+
+function start() {
+  load()
+  .then(makeScene)
+  .catch(console.error);
 }
 
 module.exports = {
