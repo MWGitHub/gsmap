@@ -30,37 +30,55 @@ function getBytesPerPixel(bitDepth, colorType) {
   return 4 * bytesPerSample;
 }
 
-function setUnfilteredLine(filteredBytes, byteOffset, byteArray, start, length) {
+/**
+ * Add elements to the filtered bytes array as unfiltered.
+ *
+ * @param {Number[]} unfilteredBytes - unfiltered bytes array to modify.
+ * @param {Number} byteOffset - offset for filteredBytes.
+ * @param {Uint8Array} byteArray - byte array to read from.
+ * @param {Number} start - offset for the byteArray.
+ * @param {Number} length - bytes to set.
+ */
+function setUnfilteredLine(unfilteredBytes, byteOffset, byteArray, start, length) {
   for (let i = 0; i < length; i++) {
-    filteredBytes.push(byteArray[start + i]);
+    unfilteredBytes.push(byteArray[start + i]);
   }
 }
 
-function setSubLine(filteredBytes, byteOffset, byteArray, start, length, bytesPerPixel) {
+/**
+ * Add elements to the filtered bytes array as sub.
+ *
+ * @param {Number[]} unfilteredBytes - unfiltered bytes array to modify.
+ * @param {Number} byteOffset - offset for filteredBytes.
+ * @param {Uint8Array} byteArray - byte array to read from.
+ * @param {Number} start - offset for the byteArray.
+ * @param {Number} length - bytes to set.
+ */
+function setSubLine(unfilteredBytes, byteOffset, byteArray, start, length, bytesPerPixel) {
   for (let i = 0; i < length; i++) {
     const offset = byteOffset + i - bytesPerPixel;
     const current = byteArray[start + i];
-    const previous = offset >= byteOffset ? filteredBytes[offset] : 0;
+    const previous = offset >= byteOffset ? unfilteredBytes[offset] : 0;
 
-    filteredBytes.push((current + previous) & 0xFF);
+    unfilteredBytes.push((current + previous) & 0xFF);
   }
 }
 
-function setUpPixelLine(filteredBytes, byteOffset, byteArray, start, length, bytesPerPixel) {
+function setUpPixelLine() {
   throw new Error('Unfilter up not supported');
 }
 
-function setAveragePixelLine(filteredBytes, byteOffset, byteArray, start, length, bytesPerPixel) {
+function setAveragePixelLine() {
   throw new Error('Unfilter average not supported');
 }
 
-function setPaethPixelLine(filteredBytes, byteOffset, byteArray, start, length, bytesPerPixel) {
+function setPaethPixelLine() {
   throw new Error('Unfilter Paeth not supported');
 }
 
-function getPixels(filteredBytes, bytesPerSample, keys) {
+function getPixels(unfilteredBytes, bytesPerSample, keys) {
   const bytesPerPixel = bytesPerSample * keys.length;
-  const pixelCount = filteredBytes.length / bytesPerPixel;
+  const pixelCount = unfilteredBytes.length / bytesPerPixel;
   const pixels = [];
 
   for (let i = 0; i < pixelCount; i++) {
@@ -69,7 +87,7 @@ function getPixels(filteredBytes, bytesPerSample, keys) {
       const key = keys[offset];
       const start = i * bytesPerPixel + offset * bytesPerSample;
 
-      pixel[key] = bytesToUint32(filteredBytes, start, bytesPerSample);
+      pixel[key] = bytesToUint32(unfilteredBytes, start, bytesPerSample);
     }
 
     pixels.push(pixel);
@@ -107,7 +125,7 @@ export default function parse(byteArray, start, length, header) {
   }
 
   const filters = [];
-  const filteredBytes = [];
+  const unfilteredBytes = [];
 
   let byteOffset = 0;
   while (byteOffset < decompressed.length) {
@@ -125,7 +143,7 @@ export default function parse(byteArray, start, length, header) {
       default: throw new Error('Unknown filtering method');
     }
 
-    filterFunction(filteredBytes, byteOffset - filters.length,
+    filterFunction(unfilteredBytes, byteOffset - filters.length,
       decompressed, byteOffset, bytesPerScanline, bytesPerPixel);
 
     byteOffset += bytesPerScanline;
@@ -141,7 +159,7 @@ export default function parse(byteArray, start, length, header) {
     default: throw new Error('Unknown color type');
   }
 
-  const pixels = getPixels(filteredBytes, bytesPerSample, keys);
+  const pixels = getPixels(unfilteredBytes, bytesPerSample, keys);
 
   return {
     filters,

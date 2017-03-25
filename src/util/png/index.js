@@ -120,30 +120,20 @@ function png(byteArray) {
     }
   }
 
-  const pixel2d = [];
+  const pixels2d = [];
   const width = header.width;
   for (let i = 0; i < width; i++) {
-    pixel2d.push([]);
+    pixels2d.push([]);
   }
-  let visibleCount = 0;
   for (let i = 0; i < pixels.length; i++) {
     const row = Math.floor(i / width);
-    pixel2d[row].push(pixels[i].a);
-
-    if (pixels[i].a > 1) {
-      visibleCount++;
-    }
+    pixels2d[row].push(pixels[i]);
   }
-  for (let i = 0; i < pixel2d.length; i++) {
-    console.log(pixel2d[i].toString());
-  }
-
-  console.log('visible', visibleCount);
 
   return {
     header,
     filters,
-    pixels
+    pixels: pixels2d
   };
 }
 
@@ -170,7 +160,9 @@ function load(path) {
       }
     });
 
-    req.addEventListener('error', reject);
+    req.addEventListener('error', () => {
+      reject(new Error('Error has occurred on request'));
+    });
 
     req.open('GET', path, true);
     req.send();
