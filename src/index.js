@@ -1,6 +1,7 @@
 import { Scene, PerspectiveCamera, WebGLRenderer } from 'three';
 import { load as loadPNG } from './util/png';
 import SimpleMap from './maps/SimpleMap';
+import PolygonMap from './maps/PolygonMap';
 
 function load() {
   // return loadPNG('png-test.png');
@@ -16,10 +17,12 @@ function makeScene(image) {
 
   document.body.appendChild(renderer.domElement);
 
-  // scene.add(cube);
-  const map = new SimpleMap(image.pixels);
+  const simpleMap = new SimpleMap(image.pixels);
+  simpleMap.position.x = -50;
+  scene.add(simpleMap);
 
-  scene.add(map);
+  const polygonMap = new PolygonMap(image.pixels);
+  scene.add(polygonMap);
 
   camera.position.z = 100;
 
