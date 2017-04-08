@@ -1,0 +1,17 @@
+{
+  "name": "gsmap",
+  "description": "",
+  "main": "dist/gsmap.js",
+  "authors": [
+    "Michael Wang <mwwpublic@gmail.com>"
+  ],
+  "license": "ISC",
+  "homepage": "https://github.com/MWGitHub/gsmap",
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests"
+  ]
+}
