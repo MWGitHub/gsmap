@@ -10,13 +10,6 @@ function load() {
 
 function makeScene(image) {
   const scene = new Scene();
-  const camera = new PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-  const renderer = new WebGLRenderer();
-
-  renderer.setSize(window.innerWidth, window.innerHeight);
-
-  document.body.appendChild(renderer.domElement);
-
   const simpleMap = new SimpleMap(image.pixels);
   simpleMap.position.x = -50;
   scene.add(simpleMap);
@@ -24,19 +17,34 @@ function makeScene(image) {
   const polygonMap = new PolygonMap(image.pixels);
   scene.add(polygonMap);
 
-  camera.position.z = 100;
-
-  function render() {
-    requestAnimationFrame(render);
-    renderer.render(scene, camera);
-  }
-
-  render();
+  return scene;
 }
 
-function start() {
+function render(scene, { onRenderStart, onRenderEnd } = {}) {
+  const camera = new PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+  const renderer = new WebGLRenderer();
+
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  camera.position.z = 100;
+  document.body.appendChild(renderer.domElement);
+
+  function tick() {
+    onRenderStart && onRenderStart();
+    renderer.render(scene, camera);
+    onRenderEnd && onRenderEnd();
+    requestAnimationFrame(tick);
+  }
+
+  requestAnimationFrame(tick);
+}
+
+function start({ onRenderStart, onRenderEnd } = {}) {
   load()
-  .then(makeScene)
+  .then((image) => {
+    const scene = makeScene(image);
+
+    render(scene, { onRenderStart, onRenderEnd });
+  })
   .catch(console.error); // eslint-disable-line no-console
 }
 

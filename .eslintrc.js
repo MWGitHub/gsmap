@@ -16,6 +16,9 @@ module.exports = {
       'no-plusplus': 0,
       'no-bitwise': 0,
       'no-mixed-operators': 0,
-      'no-continue': 0
+      'no-continue': 0,
+      'no-unused-expressions': ['error', {
+        allowShortCircuit: true
+      }]
     }
 };

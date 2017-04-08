@@ -3,6 +3,7 @@
   <head>
     <meta charset="utf-8">
     <title>Demo</title>
+    <script src="../bower_components/stats.js/build/stats.min.js"></script>
     <script src="../dist/gsmap.js"></script>
     <style>
       body {
@@ -18,7 +19,14 @@
   <body>
     <div id="main"></div>
     <script>
-      gsmap.start();
+      var stats = new Stats();
+      stats.showPanel(0);
+      document.body.appendChild(stats.dom);
+
+      gsmap.start({
+        onRenderStart: stats.begin,
+        onRenderEnd: stats.end
+      });
     </script>
   </body>
 </html>
