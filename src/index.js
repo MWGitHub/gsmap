@@ -1,17 +1,18 @@
-import { Scene, PerspectiveCamera, WebGLRenderer, SpotLight } from 'three';
+import * as THREE from 'three';
+import OrbitControls from 'three-orbit-controls';
 import { load as loadPNG } from './util/png';
 import SimpleMap from './maps/SimpleMap';
 import PolygonMap from './maps/PolygonMap';
 
 function load() {
   // return loadPNG('png-test.png');
-  return loadPNG('heightmap.png');
+  return loadPNG('heightmap-med.png');
 }
 
 function makeScene(image) {
-  const scene = new Scene();
+  const scene = new THREE.Scene();
 
-  const light = new SpotLight(0xffffff, 0.5);
+  const light = new THREE.SpotLight(0xffffff, 0.5);
   light.castShadow = true;
   light.position.set(10, 10, 10);
   scene.add(light);
@@ -27,13 +28,17 @@ function makeScene(image) {
 }
 
 function render(scene, { onRenderStart, onRenderEnd } = {}) {
-  const camera = new PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
-  const renderer = new WebGLRenderer();
+  const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+  const renderer = new THREE.WebGLRenderer();
 
   renderer.setSize(window.innerWidth, window.innerHeight);
   camera.position.z = 100;
   camera.rotateX(0.1);
   document.body.appendChild(renderer.domElement);
+
+  camera.lookAt(new THREE.Vector3());
+  const Controls = OrbitControls(THREE);
+  const instance = new Controls(camera);
 
   function tick() {
     onRenderStart && onRenderStart();
