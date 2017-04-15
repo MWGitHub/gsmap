@@ -4,19 +4,20 @@ import {
 } from 'three';
 
 class PolygonMap extends Group {
-  constructor(pixels) {
+  constructor(imageData) {
     super();
-    const height = pixels.length;
-    const width = pixels[0].length;
+    const height = imageData.height;
+    const width = imageData.width;
 
     const geometry = new PlaneGeometry(width, height, width, height);
     for (let i = 0; i < geometry.vertices.length; i++) {
-      const row = Math.floor(i / (width + 1));
-      const col = i % (width + 1);
+      const start = i * 4;
+      const r = imageData.data[start];
+      const g = imageData.data[start + 1];
+      const b = imageData.data[start + 2];
 
-      if (row < height && col < width) {
-        const pixel = pixels[row][col];
-        const magnitude = (pixel.r + pixel.g + pixel.b) / 3;
+      if (i < imageData.data.length) {
+        const magnitude = (r + g + b) / 3;
 
         geometry.vertices[i].z = magnitude / 10;
       }

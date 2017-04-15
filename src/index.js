@@ -1,15 +1,33 @@
 import * as THREE from 'three';
 import OrbitControls from 'three-orbit-controls';
-import { load as loadPNG } from './util/png';
-import SimpleMap from './maps/SimpleMap';
 import PolygonMap from './maps/PolygonMap';
 
-function load() {
-  // return loadPNG('png-test.png');
-  return loadPNG('heightmap-med.png');
+function load(path) {
+  const loader = new THREE.TextureLoader();
+
+  return new Promise((resolve, reject) => {
+    loader.load(
+      path,
+      (texture) => {
+        const image = texture.image;
+        const canvas = document.createElement('canvas');
+        const canvas2d = canvas.getContext('2d');
+
+        canvas.width = image.width;
+        canvas.height = image.height;
+        canvas2d.drawImage(image, 0, 0, image.width, image.height);
+
+        const imageData = canvas2d.getImageData(0, 0, image.width, image.height);
+
+        resolve(imageData);
+      },
+      null,
+      reject
+    );
+  });
 }
 
-function makeScene(image) {
+function makeScene(imageData) {
   const scene = new THREE.Scene();
 
   const light = new THREE.SpotLight(0xffffff, 0.5);
@@ -17,11 +35,7 @@ function makeScene(image) {
   light.position.set(10, 10, 10);
   scene.add(light);
 
-  const simpleMap = new SimpleMap(image.pixels);
-  simpleMap.position.x = -50;
-  scene.add(simpleMap);
-
-  const polygonMap = new PolygonMap(image.pixels);
+  const polygonMap = new PolygonMap(imageData);
   scene.add(polygonMap);
 
   return scene;
@@ -51,9 +65,9 @@ function render(scene, { onRenderStart, onRenderEnd } = {}) {
 }
 
 function start({ onRenderStart, onRenderEnd } = {}) {
-  load()
-  .then((image) => {
-    const scene = makeScene(image);
+  load('heightmap.png')
+  .then((imageData) => {
+    const scene = makeScene(imageData);
 
     render(scene, { onRenderStart, onRenderEnd });
   })
