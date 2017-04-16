@@ -8,18 +8,56 @@ class PolygonMap extends Group {
     super();
     const height = imageData.height;
     const width = imageData.width;
+    console.log(imageData);
 
     const geometry = new PlaneGeometry(width, height, width, height);
     for (let i = 0; i < geometry.vertices.length; i++) {
+      const pixels = [];
+      const row = Math.floor(i / (width + 1));
+      const col = i % (width + 1);
+
+      if (row === 0) {
+        pixels.push({
+          row,
+          col
+        });
+      } else {
+        pixels.push({
+          row: row - 1,
+          col
+        });
+        if (col > 0) {
+          pixels.push({
+            row: row - 1,
+            col: col - 1
+          });
+        }
+      }
+      if (row < height) {
+        pixels.push({
+          row,
+          col
+        });
+        if (col > 0) {
+          pixels.push({
+            row,
+            col: col - 1
+          });
+        }
+      }
+
+      console.log(row, col);
+
       const start = i * 4;
       const r = imageData.data[start];
       const g = imageData.data[start + 1];
       const b = imageData.data[start + 2];
+      const a = imageData.data[start + 3];
 
       if (i < imageData.data.length) {
-        const magnitude = (r + g + b) / 3;
+        const magnitude = (r + g + b + a) / 3;
 
-        geometry.vertices[i].z = magnitude / 10;
+        // geometry.vertices[i].z = magnitude / 10;
       }
     }
 

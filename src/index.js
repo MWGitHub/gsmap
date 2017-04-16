@@ -65,7 +65,7 @@ function render(scene, { onRenderStart, onRenderEnd } = {}) {
 }
 
 function start({ onRenderStart, onRenderEnd } = {}) {
-  load('heightmap.png')
+  load('png-test.png')
   .then((imageData) => {
     const scene = makeScene(imageData);
 
