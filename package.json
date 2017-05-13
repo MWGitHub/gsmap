@@ -34,6 +34,7 @@
     "webpack": "^2.2.1"
   },
   "dependencies": {
+    "basic-loaders": "^1.1.8",
     "pako": "^1.0.4",
     "three": "^0.84.0",
     "three-orbit-controls": "^82.1.0"
